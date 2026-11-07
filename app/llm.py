@@ -23,7 +23,7 @@ class Classification(BaseModel):
     """Classification d'un incident IT bancaire."""
     categorie: Literal["réseau", "base de données", "applicatif", "sécurité", "hors périmètre"]
     criticite: int = Field(ge=1, le=4, description="1 = mineur, 4 = clients ou argent bloqués")
-    service: str = Field(description="Nom court du service : 'SEPA', 'Paiement', 'Carte', 'Appli mobile' ou 'Autre'")
+    service: Literal["SEPA", "Paiement", "Carte", "Appli mobile", "Autre"]
     resume: str = Field(description="UNE seule phrase courte")
 
 CONSIGNES = """Tu classes des incidents informatiques dans une banque.
