@@ -4,7 +4,10 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 
 from app.llm import classifieur
-from app.tools import llm_avec_outils
+
+
+from langgraph.prebuilt import ToolNode, tools_condition
+from app.tools import llm_avec_outils, outils
 
 # 1. Le dossier qui circule
 class State(TypedDict):
@@ -23,6 +26,8 @@ def agent(state: State):
         "Tu es analyste d'incidents dans une banque. "
         f"Classification : {state['classification']}. "
         "Utilise les outils pour compter les incidents du service et trouver la procédure."
+    
+        "puis propose UNE action corrective en 2 phrases maximum."
     )
     reponse = llm_avec_outils.invoke([consigne] + state["messages"])
     print("[agent] demandes d'outils :", [(a["name"], a["args"]) for a in reponse.tool_calls])
@@ -32,9 +37,12 @@ def agent(state: State):
 g = StateGraph(State)
 g.add_node("classer", classer)
 g.add_node("agent", agent)
+g.add_node("tools", ToolNode(outils))  
 g.add_edge(START, "classer")
 g.add_edge("classer", "agent")
-g.add_edge("agent", END)
+g.add_conditional_edges("agent", tools_condition)
+g.add_edge("tools", "agent")
+
 graphe = g.compile()
 
 if __name__ == "__main__":
@@ -46,4 +54,4 @@ if __name__ == "__main__":
     print("\nClassification :", resultat["classification"])
     print("Nombre de messages :", len(resultat["messages"]))
     for m in resultat["messages"]:
-        print(" -", type(m).__name__, "| tool_calls :", getattr(m, "tool_calls", None))
+        print(" -", type(m).__name__, "|", (m.content or "")[:90], "|", getattr(m, "tool_calls", ""))
