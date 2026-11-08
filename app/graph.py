@@ -1,5 +1,5 @@
 from typing import Annotated, Optional, TypedDict
-from langchain.messages import SystemMessage, HumanMessage
+from langchain.messages import SystemMessage, HumanMessage ,AIMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 
@@ -10,17 +10,19 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from app.tools import llm_avec_outils, outils
 
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import interrupt, Command
 
 # 1. Le dossier qui circule
 class State(TypedDict):
     messages: Annotated[list, add_messages]          # règle : on AJOUTE à la suite
-    classification: Optional[dict]          # règle par défaut : on remplace
+    classification: Optional[dict]   
+    decision: Optional[str]         
 
 # 2. Les postes de travail
 def classer(state: State):
     if state.get("classification"):
            return {}
-    texte = state["messages"][0].content
+    texte = state["messages"][-1].content
     res = classifieur.invoke({"incident": texte})
     print("[classer] ->", res.categorie, "| criticité", res.criticite)
     return {"classification": res.model_dump()}      # on ne renvoie QUE sa case
@@ -36,38 +38,55 @@ def agent(state: State):
     print("[agent] demandes d'outils :", [(a["name"], a["args"]) for a in reponse.tool_calls])
     return {"messages": [reponse]}
 
+
+def validation_humaine(state: State):
+    print("[validation] la pause commence")      # volontairement AVANT interrupt (expérience)
+    decision = interrupt({
+        "action_proposee": state["messages"][-1].content,
+        "question": "Approuver cette action ? (oui/non)",
+    })
+    return {"decision": decision}
+
+def executer(state: State):
+    print("[executer] action exécutée")
+    return {"messages": [AIMessage("Action enregistrée dans l'outil de ticketing (simulation).")]}
+
+def apres_validation(state: State) -> str:
+    return "executer" if state["decision"] == "oui" else END
+
 # 3. Le plan de l'usine
 g = StateGraph(State)
 g.add_node("classer", classer)
 g.add_node("agent", agent)
 g.add_node("tools", ToolNode(outils))  
+g.add_node("validation_humaine", validation_humaine)
+g.add_node("executer", executer)
 g.add_edge(START, "classer")
 g.add_edge("classer", "agent")
-g.add_conditional_edges("agent", tools_condition)
+
+# agent : outil demandé -> tools ; sinon -> validation (au lieu de END)
+g.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: "validation_humaine"})
+g.add_conditional_edges("validation_humaine", apres_validation, ["executer", END])
+g.add_edge("executer", END)
 g.add_edge("tools", "agent")
 
 graphe = g.compile(checkpointer=InMemorySaver())
 
 if __name__ == "__main__":
-    dossier_a = {"configurable": {"thread_id": "incident-SEPA-001"}}
-    dossier_b = {"configurable": {"thread_id": "incident-002"}}
+    dossier = {"configurable": {"thread_id": "incident-SEPA-010"}}
 
-    # 1. Premier message dans le dossier A
-    r1 = graphe.invoke({"messages": [HumanMessage(
-        "Depuis 9h, les virements SEPA échouent avec un timeout sur la base Oracle.")]}, dossier_a)
-    print("\n[A - 1] :", r1["messages"][-1].content)
+    # 1. L'usine tourne jusqu'à la pause
+    r = graphe.invoke({"messages": [HumanMessage(
+        "Depuis 9h, les virements SEPA échouent avec un timeout sur la base Oracle.")]}, dossier)
 
-    # 2. On revient dans le MÊME dossier : l'agent se souvient-il ?
-    r2 = graphe.invoke({"messages": [HumanMessage(
-        "Rappelle-moi le service concerné et le nombre d'incidents.")]}, dossier_a)
-    print("\n[A - 2] :", r2["messages"][-1].content)
+    pause = r["__interrupt__"][0].value
+    print("\nAction proposée :", pause["action_proposee"])
+    print("Poste en attente :", graphe.get_state(dossier).next)
 
-    # 3. Même question, mais dans un AUTRE dossier
-    r3 = graphe.invoke({"messages": [HumanMessage(
-        "Rappelle-moi le service concerné et le nombre d'incidents.")]},dossier_b)
-    print("\n[B - 1] :", r3["messages"][-1].content)
+    # 2. Le chef décide
+    reponse = input(pause["question"] + " ").strip().lower()
 
-    # 4. La dernière photo du dossier A
-    photo = graphe.get_state(dossier_a)
-    print("\nDossier A :", len(photo.values["messages"]), "messages | classification :",
-          photo.values["classification"]["categorie"])
+    # 3. On reprend, MÊME dossier
+    final = graphe.invoke(Command(resume=reponse), dossier)
+    print("\nDécision :", final["decision"])
+    print("Dernier message :", final["messages"][-1].content)
