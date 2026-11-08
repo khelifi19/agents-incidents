@@ -1,13 +1,8 @@
 from langchain.tools import tool
 from langchain.messages import HumanMessage, ToolMessage
 from app.llm import llm
+from app.rag import chercher
 
-PROCEDURES = {
-    "base de données": "Basculer sur la base secondaire, puis ouvrir un ticket DBA.",
-    "réseau": "Vérifier le load balancer et redémarrer la passerelle concernée.",
-    "applicatif": "Revenir à la version précédente (rollback) et prévenir l'équipe projet.",
-    "sécurité": "Isoler le serveur et prévenir immédiatement le SOC.",
-}
 INCIDENTS = {"SEPA": 12, "Paiement": 3, "Carte": 5, "Appli mobile": 7}
 
 @tool
@@ -17,10 +12,10 @@ def compter_incidents(service: str) -> int:
     return INCIDENTS.get(service, 0)
 
 @tool
-def rechercher_procedure(categorie: str) -> str:
-    """Renvoie la procédure interne à suivre pour une catégorie d'incident.
-    Valeurs possibles : 'réseau', 'base de données', 'applicatif', 'sécurité'."""
-    return PROCEDURES.get(categorie, "Aucune procédure trouvée.")
+def rechercher_procedure(question: str) -> str:
+    """Cherche dans les procédures internes de la banque la marche à suivre pour un incident.
+    Donne une description courte du problème, ex. 'timeout base Oracle virements SEPA'."""
+    return chercher(question)
 
 outils = [compter_incidents, rechercher_procedure]
 outils_par_nom = {o.name: o for o in outils} 

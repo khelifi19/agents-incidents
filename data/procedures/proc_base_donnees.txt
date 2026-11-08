@@ -1,0 +1,1 @@
+En cas d’indisponibilité ou de lenteur d’une base Oracle ou PostgreSQL : basculer sur l’instance secondaire, vérifier les verrous actifs, ouvrir un ticket à l’équipe DBA, prévenir le responsable de service si les paiements sont touchés.
