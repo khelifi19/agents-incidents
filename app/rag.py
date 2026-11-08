@@ -1,8 +1,9 @@
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 
-# Le modèle qui donne une "adresse" à chaque texte
-Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
+import os
+Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text",
+                                       base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
 
 # Ramasser les documents, les ranger, préparer la recherche
 documents = SimpleDirectoryReader("data/procedures").load_data()

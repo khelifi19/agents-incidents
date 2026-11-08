@@ -9,8 +9,9 @@ from pydantic import BaseModel, Field
 
 from langchain_core.prompts import ChatPromptTemplate
 
-# 1. Relier la télécommande au perroquet (modèle local, fantaisie minimale)
-llm = init_chat_model("qwen2.5:7b", model_provider="ollama", temperature=0)
+import os
+llm = init_chat_model("qwen2.5:7b", model_provider="ollama", temperature=0,
+                      base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
 # 2. Les répliques de la pièce
 messages=[
     SystemMessage("Tu es un analyste d'incidents dans une banque. "
