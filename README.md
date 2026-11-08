@@ -60,6 +60,8 @@ python -m evals.eval_classification   # lance l'évaluation
 ```
 
 ### Avec Docker
+```bash
 docker build -t agent-incidents .
 docker run -p 8000:8000 --env-file .env agent-incidents
 # puis http://127.0.0.1:8000/docs
+```
