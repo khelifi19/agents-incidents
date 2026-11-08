@@ -40,6 +40,9 @@ flowchart TD
 - Trace d'une exécution : environ 4,6 s et 1 200 tokens, le temps étant concentré dans les appels au LLM.
 
 ![Trace LangSmith](docs/trace_langsmith.png)
+### API (FastAPI)
+![Routes de l'API](docs/api_routes.png)
+![Incident en attente de validation](docs/api_validation.png)
 
 ## Limites et prochaines étapes
 - Jeu d'évaluation petit : l'enrichir avec des cas ambigus et évaluer aussi la criticité.
